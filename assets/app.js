@@ -329,6 +329,180 @@
       { num: R.series.flatMap((_, i) => [1 + i * 2, 2 + i * 2]) });
   }
 
+  /* ---------- Uso das LLMs ---------- */
+  function llms(R) {
+    const sec = document.getElementById("llms");
+    if (!sec) return;
+    const L = D.llm;
+    if (!L) { sec.hidden = true; return; }
+    const MOD = L.modelos.map((m) => ({ chave: m.sigla, rotulo: m.nome, rotuloLongo: `${m.nome} (${m.config.includes("padrão") ? "padrão" : "alto"})` }));
+    const nome = Object.fromEntries(L.modelos.map((m) => [m.sigla, m.nome]));
+    const ids = new Set(R.sess.map((x) => x.id));
+    const dispDe = Object.fromEntries(D.sessoes.map((x) => [x.id, x.disp]));
+    const COB = L.cobertura.filter((c) => ids.has(c.s)).map((c) => Object.assign({ disp: dispDe[c.s] }, c));
+    const CAN = L.candidatos.filter((c) => ids.has(c.s)).map((c) => Object.assign({ disp: dispDe[c.s] }, c));
+    const PIL = L.piloto.filter((c) => ids.has(c.s)).map((c) => Object.assign({ disp: dispDe[c.s] }, c));
+    const EP = R.epis;
+    const doDisp = (lista, d) => (d ? lista.filter((x) => x.disp === d) : lista);
+
+    // métricas por modelo (d = dispositivo ou null para o recorte inteiro)
+    const M = {
+      volume: (m, d) => { const c = doDisp(COB, d).filter((x) => x.m === m); return c.length ? { v: c.reduce((a, x) => a + x.nc, 0) / c.length, n: c.length } : null; },
+      recall: (m, d) => { const e = doDisp(EP, d); return e.length ? { n: e.filter((x) => x.ms.includes(m)).length, N: e.length } : null; },
+      exclusivo: (m, d) => { const e = doDisp(EP, d); return e.length ? { n: e.filter((x) => x.ms.length === 1 && x.ms[0] === m).length, N: e.length } : null; },
+      aproveitamento: (m, d) => { const c = doDisp(CAN, d).filter((x) => x.m === m); return c.length ? { n: c.filter((x) => x.conta).length, N: c.length } : null; },
+      impacto: (m, d) => { const e = doDisp(EP, d).filter((x) => x.im && x.im[m]); return e.length ? { n: e.filter((x) => x.im[m] === x.imp).length, N: e.length } : null; },
+      piloto: (m, d) => { const p = doDisp(PIL, d); return p.length ? { n: p.filter((x) => x.ms.includes(m)).length, N: p.length } : null; },
+    };
+    const fracBar = (f) => (l, se) => { const r = f(l.chave, se.chave); return r && r.N ? { v: r.n / r.N, texto: frac(r.n, r.N) } : null; };
+    const pctOpts = { max: 1, ticks: [0, 0.5, 1], formato: (v) => pf.format(v), espacoValor: 92 };
+    const cartaoModelos = (id, titulo, sub, f, extra, notaTxt) => {
+      const fig = document.getElementById(id);
+      const corpo = G.cartao(fig, { titulo, sub, series: R.series });
+      G.barrasH(corpo, Object.assign({ linhas: MOD, series: R.series, valor: fracBar(f) }, pctOpts, extra || {}));
+      G.tabela(fig, ["Modelo", ...R.series.map((se) => se.rotulo), "Recorte inteiro"],
+        MOD.map((m) => [m.rotuloLongo, ...R.series.map((se) => { const r = f(m.chave, se.chave); return r ? frac(r.n, r.N) : "—"; }), (() => { const r = f(m.chave, null); return r ? frac(r.n, r.N) : "—"; })()]),
+        { num: [1, 2, 3].slice(0, R.series.length + 1) });
+      G.nota(fig, notaTxt);
+    };
+
+    document.getElementById("llm-intro").textContent =
+      `Quatro modelos leram as mesmas transcrições de think-aloud, em lotes de ${L.sessoes_por_lote} sessões por arquivo, e devolveram candidatos a fricção com citação e localizador. ChatGPT, Claude e Gemini rodaram na versão de desempenho alto; o DeepSeek, na versão padrão disponível. Os candidatos foram verificados no TXT e fundidos em episódios consolidados; os gráficos abaixo usam os episódios com evidência compatível e contados como ocorrência, no recorte dos filtros do topo.`;
+
+    // volume
+    {
+      const fig = document.getElementById("c-llm-volume");
+      const corpo = G.cartao(fig, { titulo: "Candidatos por sessão", sub: "Média de candidatos a fricção que cada modelo devolveu por sessão.", series: R.series });
+      const vals = MOD.flatMap((m) => R.series.map((se) => (M.volume(m.chave, se.chave) || { v: 0 }).v));
+      const mx = Math.max(1, Math.ceil(Math.max(...vals)));
+      G.barrasH(corpo, { linhas: MOD, series: R.series, max: mx, ticks: [0, mx / 2, mx], formato: (v) => nf.format(v), espacoValor: 60,
+        valor: (l, se) => { const r = M.volume(l.chave, se.chave); return r ? { v: r.v, texto: nf.format(r.v), tip: { titulo: l.rotuloLongo, linhas: [{ classe: se.classe, valor: nf.format(r.v), rotulo: `${se.rotulo} · candidatos por sessão` }], extra: `${r.n} sessões` } } : null; } });
+      G.tabela(fig, ["Modelo", ...R.series.map((se) => `${se.rotulo}: média`), "Total de candidatos"],
+        MOD.map((m) => [m.rotuloLongo, ...R.series.map((se) => { const r = M.volume(m.chave, se.chave); return r ? nf.format(r.v) : "—"; }), COB.filter((x) => x.m === m.chave).reduce((a, x) => a + x.nc, 0)]),
+        { num: R.series.map((_, i) => i + 1).concat([R.series.length + 1]) });
+      G.nota(fig, "Volume não é qualidade: um modelo pode devolver mais candidatos por fragmentar o mesmo episódio ou por registrar indícios fracos.");
+    }
+    cartaoModelos("c-llm-recall", "Cobertura dos episódios consolidados", "Proporção dos episódios contados que o modelo encontrou.", M.recall, null,
+      "O consolidado é a união dos quatro modelos, mais piloto manual e telemetria; por isso a cobertura favorece quem detecta mais. Não é uma medida de acerto contra um gabarito externo.");
+    cartaoModelos("c-llm-exclusivos", "Episódios que só esse modelo encontrou", "Proporção dos episódios contados detectados por um único modelo.", M.exclusivo, (() => { const vs = MOD.flatMap((m) => R.series.map((se) => { const r = M.exclusivo(m.chave, se.chave); return r && r.N ? r.n / r.N : 0; })); const mx = Math.max(0.1, Math.ceil(Math.max(...vs) * 20) / 20); return { max: mx, ticks: [0, mx / 2, mx] }; })(),
+      "Episódio exclusivo pode ser sensibilidade a mais ou interpretação isolada; todos passaram pela verificação da citação e da compatibilidade.");
+    cartaoModelos("c-llm-aproveitamento", "Candidatos que viraram ocorrência", "Proporção dos candidatos do modelo que terminaram num episódio compatível e contado.", M.aproveitamento, null,
+      "Candidatos fundidos em relatos retrospectivos, duplicados de outro episódio ou com interpretação inconclusiva não contam como ocorrência.");
+    cartaoModelos("c-llm-impacto", "Impacto igual ao consolidado", "Nos episódios que o modelo encontrou, proporção em que o impacto atribuído por ele é o impacto final.", M.impacto, null,
+      "O impacto final segue a regra documentada no consolidado (evidência de consequência, retrabalho, ajuda), não o voto da maioria.");
+    cartaoModelos("c-llm-piloto", "Concordância com a codificação manual (piloto)", "Itens da codificação manual do piloto que o modelo também encontrou.", M.piloto, null,
+      "Piloto: 37 itens codificados à mão em 7 sessões (bdz, bkq, bny, cxj, hng, jmz, vae). Amostra pequena; serve de referência, não de gabarito.");
+
+    // concordância par a par
+    {
+      const fig = document.getElementById("c-llm-concordancia");
+      const corpo = G.cartao(fig, { titulo: "Concordância entre pares de modelos", sub: "Índice de Jaccard: episódios encontrados pelos dois ÷ episódios encontrados por pelo menos um." });
+      const jac = (a, b) => { const A = EP.filter((x) => x.ms.includes(a) || x.ms.includes(b)); const n = A.filter((x) => x.ms.includes(a) && x.ms.includes(b)).length; return A.length ? { v: n / A.length, n, N: A.length } : null; };
+      G.calor(corpo, { linhas: MOD, colunas: MOD.map((m) => ({ chave: m.chave, rotulo: m.rotulo })), classe: "llm", limiarTexto: 0.85, rotW: 90, aria: "Matriz de concordância entre modelos",
+        valor: (l, c) => { if (l.chave === c.chave) return null; const r = jac(l.chave, c.chave); return r ? { v: r.v, texto: pf.format(r.v), tip: { titulo: `${l.rotulo} × ${c.rotulo}`, linhas: [{ valor: pf.format(r.v), rotulo: "Jaccard" }], extra: `${r.n} em comum de ${r.N}` } } : null; } });
+      G.tabela(fig, ["Par", "Em comum", "União", "Jaccard"], MOD.flatMap((a, i) => MOD.slice(i + 1).map((b) => { const r = jac(a.chave, b.chave); return [`${a.rotulo} × ${b.rotulo}`, r ? r.n : 0, r ? r.N : 0, r ? pf.format(r.v) : "—"]; })), { num: [1, 2, 3] });
+    }
+    // consenso
+    {
+      const fig = document.getElementById("c-llm-consenso");
+      const corpo = G.cartao(fig, { titulo: "Quantos modelos encontraram cada episódio", sub: "Distribuição dos episódios contados pelo número de modelos que os detectaram.", series: R.series });
+      const NIV = [4, 3, 2, 1, 0].map((k) => ({ chave: k, rotulo: k === 0 ? "Nenhum (piloto ou telemetria)" : `${k} modelo${k > 1 ? "s" : ""}` }));
+      G.barrasH(corpo, Object.assign({ linhas: NIV, series: R.series, valor: (l, se) => { const e = doDisp(EP, se.chave); return e.length ? { v: e.filter((x) => x.ms.length === l.chave).length / e.length, texto: frac(e.filter((x) => x.ms.length === l.chave).length, e.length) } : null; } }, pctOpts));
+      G.tabela(fig, ["Modelos", ...R.series.map((se) => se.rotulo)], NIV.map((l) => [l.rotulo, ...R.series.map((se) => { const e = doDisp(EP, se.chave); return frac(e.filter((x) => x.ms.length === l.chave).length, e.length); })]), { num: R.series.map((_, i) => i + 1) });
+    }
+    // padrões × modelos
+    {
+      const fig = document.getElementById("c-llm-padroes");
+      const corpo = G.cartao(fig, { titulo: "Cobertura por padrão de fricção", sub: "Para cada padrão, proporção dos episódios contados que cada modelo encontrou (recorte inteiro, os dois dispositivos somados)." });
+      const pads = Object.keys(D.padroes).filter((p) => EP.some((x) => x.p === p)).sort((a, b) => EP.filter((x) => x.p === b).length - EP.filter((x) => x.p === a).length)
+        .map((p) => ({ chave: p, rotulo: `${p} ${D.padroes[p]}` }));
+      G.calor(corpo, { linhas: pads, colunas: MOD.map((m) => ({ chave: m.chave, rotulo: m.rotulo })), classe: "llm", limiarTexto: 0.85, rotW: 320, celula: 26, aria: "Cobertura por padrão e modelo",
+        valor: (l, c) => { const e = EP.filter((x) => x.p === l.chave); if (!e.length) return null; const n = e.filter((x) => x.ms.includes(c.chave)).length; return { v: n / e.length, texto: pf.format(n / e.length), tip: { titulo: `${l.rotulo} · ${c.rotulo}`, linhas: [{ valor: frac(n, e.length), rotulo: "episódios encontrados" }] } }; } });
+      G.tabela(fig, ["Padrão", "Episódios", ...MOD.map((m) => m.rotulo)], pads.map((l) => { const e = EP.filter((x) => x.p === l.chave); return [l.rotulo, e.length, ...MOD.map((m) => `${e.filter((x) => x.ms.includes(m.chave)).length}/${e.length}`)]; }), { num: [1, 2, 3, 4, 5] });
+    }
+    // posição no lote
+    {
+      const fig = document.getElementById("c-llm-lote");
+      const corpo = G.cartao(fig, { titulo: "Candidatos pela posição da sessão no lote", sub: `Cada arquivo processado tinha ${L.sessoes_por_lote} sessões. Média de candidatos por sessão em cada posição.` });
+      const POS = [1, 2, 3].map((k) => ({ chave: k, rotulo: `${k}ª sessão` }));
+      const med = (m, k) => { const c = COB.filter((x) => x.m === m && L.pos_lote[x.s] === k); return c.length ? { v: c.reduce((a, x) => a + x.nc, 0) / c.length, n: c.length } : null; };
+      const mx = Math.max(1, ...MOD.flatMap((m) => POS.map((p) => (med(m.chave, p.chave) || { v: 0 }).v)));
+      G.calor(corpo, { linhas: MOD, colunas: POS, classe: "llm", limiarTexto: 0.85, rotW: 90, aria: "Candidatos por posição no lote",
+        valor: (l, c) => { const r = med(l.chave, c.chave); return r ? { v: r.v / mx, texto: nf.format(r.v), tip: { titulo: `${l.rotulo} · ${c.rotulo}`, linhas: [{ valor: nf.format(r.v), rotulo: "candidatos por sessão" }], extra: `${r.n} sessões` } } : null; } });
+      G.tabela(fig, ["Modelo", ...POS.map((p) => p.rotulo)], MOD.map((m) => [m.rotulo, ...POS.map((p) => { const r = med(m.chave, p.chave); return r ? `${nf.format(r.v)} (n ${r.n})` : "—"; })]), { num: [1, 2, 3] });
+      G.nota(fig, "Intensidade relativa ao maior valor. A ordem das sessões no lote é alfabética pelo código, sem relação com dispositivo ou data.");
+    }
+    // estilo de resposta
+    {
+      const fig = document.getElementById("c-llm-estilo");
+      fig.replaceChildren();
+      const cap = Graf.h("figcaption", {}, fig);
+      h("h3", {}, cap, "Estilo de resposta de cada modelo");
+      h("p", { class: "sub" }, cap, "Como cada modelo lidou com incerteza, evidência e pedidos de revisão.");
+      const linhas = MOD.map((m) => {
+        const c = CAN.filter((x) => x.m === m.chave), cb = COB.filter((x) => x.m === m.chave);
+        const comImp = c.filter((x) => x.imp);
+        return [m.rotuloLongo, c.length, frac(c.filter((x) => x.st === "inconclusivo").length, c.length), frac(comImp.filter((x) => x.imp === "indeterminado").length, comImp.length),
+          frac(c.filter((x) => x.cit !== "exata").length, c.length), cb.reduce((a, x) => a + x.al, 0), frac(cb.filter((x) => x.al > 0).length, cb.length), nf.format(cb.length ? cb.reduce((a, x) => a + x.lac, 0) / cb.length : 0)];
+      });
+      const w = h("div", { class: "rolagem" }, fig);
+      const tb = h("table", {}, w);
+      const tr = h("tr", {}, h("thead", {}, tb));
+      ["Modelo", "Candidatos", "Inconclusivos", "Impacto «indeterminado»", "Citação não exata", "Alertas de reprocessamento", "Sessões com alerta", "Lacunas declaradas por sessão"].forEach((c, i) => h("th", { scope: "col", class: i ? "num" : "" }, tr, c));
+      const body = h("tbody", {}, tb);
+      for (const l of linhas) { const r = h("tr", {}, body); l.forEach((c, i) => h("td", { class: i ? "num" : "" }, r, c)); }
+      G.nota(fig, "Citação não exata: localizada em outra linha, em trechos unidos, como paráfrase próxima ou não localizada; foi corrigida ou descartada na verificação. Alertas: pedidos do próprio modelo para conferir um trecho (todos resolvidos pelo roteiro).");
+    }
+
+    // síntese
+    {
+      const box = document.getElementById("c-llm-sintese");
+      box.replaceChildren();
+      h("h3", {}, box, "Semelhanças e diferenças entre os quatro modelos");
+      const pctM = (f, m) => { const r = f(m, null); return r && r.N ? r.n / r.N : null; };
+      const ord = (f) => MOD.map((m) => ({ m, v: pctM(f, m.chave) })).filter((x) => x.v !== null).sort((a, b) => b.v - a.v);
+      const vol = MOD.map((m) => ({ m, v: (M.volume(m.chave, null) || { v: 0 }).v })).sort((a, b) => b.v - a.v);
+      const rec = ord(M.recall), imp = ord(M.impacto), pil = ord(M.piloto), exc = MOD.map((m) => ({ m, n: (M.exclusivo(m.chave, null) || { n: 0 }).n })).sort((a, b) => b.n - a.n);
+      const jacs = MOD.flatMap((a, i) => MOD.slice(i + 1).map((b) => { const A = EP.filter((x) => x.ms.includes(a.chave) || x.ms.includes(b.chave)); return A.length ? A.filter((x) => x.ms.includes(a.chave) && x.ms.includes(b.chave)).length / A.length : null; })).filter((x) => x !== null);
+      const cons = (k) => (EP.length ? EP.filter((x) => x.ms.length === k).length / EP.length : 0);
+      const maisSmart = MOD.filter((m) => { const d = M.volume(m.chave, "desktop"), s2 = M.volume(m.chave, "smartphone"); return d && s2 && s2.v > d.v; });
+      const caiLote = MOD.filter((m) => { const c1 = COB.filter((x) => x.m === m.chave && L.pos_lote[x.s] === 1), c3 = COB.filter((x) => x.m === m.chave && L.pos_lote[x.s] === 3); const a1 = c1.reduce((a, x) => a + x.nc, 0) / Math.max(1, c1.length), a3 = c3.reduce((a, x) => a + x.nc, 0) / Math.max(1, c3.length); return c1.length && c3.length && a3 < a1; });
+      const inc = MOD.map((m) => { const c = CAN.filter((x) => x.m === m.chave); const ci = c.filter((x) => x.imp); return { m, inc: c.length ? c.filter((x) => x.st === "inconclusivo").length / c.length : 0, ind: ci.length ? ci.filter((x) => x.imp === "indeterminado").length / ci.length : 0 }; });
+      const exata = MOD.map((m) => { const c = CAN.filter((x) => x.m === m.chave); return { m, n: c.filter((x) => x.cit !== "exata").length, N: c.length }; });
+      const alertas = MOD.map((m) => ({ m, n: COB.filter((x) => x.m === m.chave).reduce((a, x) => a + x.al, 0) })).sort((a, b) => b.n - a.n);
+      const nm = (x) => x.m.rotulo;
+      const juntar = (a) => (a.length <= 1 ? a.join("") : a.slice(0, -1).join(", ") + " e " + a[a.length - 1]);
+      const lista = (titulo, itens) => { h("h4", {}, box, titulo); const ul = h("ul", {}, box); itens.filter(Boolean).forEach((t) => h("li", {}, ul, t)); };
+      lista("Semelhanças", [
+        `Os quatro sustentam o que afirmam com citação literal: ${juntar(exata.filter((x) => x.n === 0).map(nm)) || "nenhum"} ${exata.filter((x) => x.n === 0).length === 1 ? "teve" : "tiveram"} todas as citações no localizador indicado; ${exata.filter((x) => x.n > 0).map((x) => `${nm(x)} teve ${x.n} de ${x.N} fora do lugar ou parafraseadas`).join("; ") || "nenhum teve citação fora do lugar"}.`,
+        `Há um núcleo comum: ${pf.format(cons(4))} dos episódios foram encontrados pelos quatro e ${pf.format(cons(3) + cons(4))} por três ou mais. A concordância entre pares (Jaccard) fica entre ${pf.format(Math.min(...jacs))} e ${pf.format(Math.max(...jacs))}.`,
+        maisSmart.length === MOD.length ? "Todos devolveram mais candidatos por sessão no smartphone que no desktop, acompanhando a diferença de fricção entre os dispositivos." : (maisSmart.length ? `Devolveram mais candidatos no smartphone: ${juntar(maisSmart.map((x) => x.rotulo))}.` : null),
+        (() => {
+          const quedas = MOD.map((m) => { const md = (k) => { const c = COB.filter((x) => x.m === m.chave && L.pos_lote[x.s] === k); return c.length ? c.reduce((a, x) => a + x.nc, 0) / c.length : null; }; const a1 = md(1), a3 = md(3); return a1 && a3 !== null ? (a1 - a3) / a1 : 0; });
+          const maior = Math.max(...quedas);
+          const base = caiLote.length === MOD.length ? "Nos quatro modelos, a 3ª sessão de cada lote rendeu um pouco menos candidatos que a 1ª" : (caiLote.length ? `Em ${juntar(caiLote.map((x) => x.rotulo))}, a 3ª sessão do lote rendeu menos candidatos que a 1ª` : "A posição da sessão no lote não mudou o número de candidatos");
+          const continua = MOD.filter((m) => { const md = (k) => { const c = COB.filter((x) => x.m === m.chave && L.pos_lote[x.s] === k); return c.length ? c.reduce((a, x) => a + x.nc, 0) / c.length : null; }; const v = [md(1), md(2), md(3)]; return v.every((x) => x !== null) && v[0] > v[1] && v[1] > v[2]; });
+          const sobre = continua.length ? `; a queda é contínua da 1ª à 3ª em ${juntar(continua.map((m) => m.rotulo))}` : "; em nenhum a queda é contínua ao longo do lote";
+          return caiLote.length ? `${base} (até ${pf.format(maior)} a menos)${sobre}. ${maior < 0.2 ? "A diferença é pequena" : "A diferença merece atenção"}, mas não foi testada; a ordem no lote é alfabética pelo código, sem relação com dispositivo ou data.` : `${base}.`;
+        })(),
+        `Os padrões mais visíveis no vídeo e na fala, como mapa bloqueado (P03) e topônimos ilegíveis (P06), têm cobertura alta em todos; as diferenças aparecem nos padrões mais sutis, como enunciado (P16), volume de texto (P19) e parques e rios (P12).`,
+      ]);
+      lista("Diferenças", [
+        `Volume: ${nm(vol[0])} devolveu ${nf.format(vol[0].v)} candidatos por sessão; ${nm(vol[vol.length - 1])}, ${nf.format(vol[vol.length - 1].v)}.`,
+        rec.length ? `Cobertura do consolidado: de ${pf.format(rec[0].v)} (${nm(rec[0])}) a ${pf.format(rec[rec.length - 1].v)} (${nm(rec[rec.length - 1])}). ${nm(exc[0])} também tem mais episódios exclusivos (${exc[0].n}); ${nm(exc[exc.length - 1])}, menos (${exc[exc.length - 1].n}).` : null,
+        `Incerteza: ${inc.slice().sort((a, b) => b.inc - a.inc).slice(0, 2).map((x) => `${nm(x)} (${pf.format(x.inc)} inconclusivos; ${pf.format(x.ind)} de impacto indeterminado)`).join(" e ")} sinalizam dúvida com frequência; ${inc.slice().sort((a, b) => a.inc - b.inc).slice(0, 2).map((x) => `${nm(x)} (${pf.format(x.inc)}; ${pf.format(x.ind)})`).join(" e ")} quase sempre afirmam.`,
+        imp.length ? `Impacto: o mais alinhado ao impacto final foi ${nm(imp[0])} (${pf.format(imp[0].v)}); o menos, ${nm(imp[imp.length - 1])} (${pf.format(imp[imp.length - 1].v)}).` : null,
+        `Pedidos de revisão (alertas de reprocessamento): ${juntar(alertas.map((x) => `${nm(x)} ${x.n}`))}.`,
+        pil.length ? `Contra a codificação manual do piloto, ${nm(pil[0])} encontrou ${pf.format(pil[0].v)} dos itens e ${nm(pil[pil.length - 1])}, ${pf.format(pil[pil.length - 1].v)}.` : null,
+      ]);
+      lista("Cautelas", [
+        "O DeepSeek rodou na versão padrão e os demais na versão de desempenho alto: as diferenças misturam modelo e configuração e não devem ser lidas como ranking dos modelos.",
+        "O consolidado nasceu da união dos próprios modelos; a cobertura mede contribuição para o conjunto, não acerto contra um gabarito independente. O piloto manual cobre só 7 sessões.",
+        "Os números seguem os filtros do topo (dispositivo e amostra).",
+      ]);
+    }
+  }
+
   /* ---------- Satisfação ---------- */
   function satisfacao(R) {
     const CL = [
@@ -532,7 +706,7 @@
     document.getElementById("resumo-filtro").textContent =
       `${R.sess.length} sessões (${R.series.map((d) => `${d.rotulo.toLowerCase()} ${d.chave === "desktop" ? nD : nS}`).join(", ")}) · ${R.tarefas.length} tarefas · ${R.epis.length} episódios`;
     G.esconder();
-    kpis(R); eficacia(R); eficiencia(R); interacoes(R); posthog(R); friccoes(R); satisfacao(R); carga(R); perfilMetricas(R); sessoes(R);
+    kpis(R); eficacia(R); eficiencia(R); interacoes(R); posthog(R); friccoes(R); llms(R); satisfacao(R); carga(R); perfilMetricas(R); sessoes(R);
   }
   cabecalhoRodape(); render();
   let larguraAnterior = document.querySelector("main").clientWidth, timer;

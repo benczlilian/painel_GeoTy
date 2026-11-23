@@ -285,7 +285,7 @@
         s("rect", { x, y: yy, width: cw - 2, height: cel - 2, rx: 4, class: `pintura fill-${o.classe}`, "fill-opacity": op.toFixed(3) }, g);
         if (cw > 30) {
           const t = txt(g, x + (cw - 2) / 2, yy + cel / 2 + 4, val.texto, { "text-anchor": "middle", class: "dentro" });
-          t.style.fill = op > 0.62 ? `var(--ink-on-${o.classe})` : "var(--ink)";
+          t.style.fill = op > (o.limiarTexto || 0.62) ? `var(--ink-on-${o.classe})` : "var(--ink)";
         }
         ligarTip(g, () => val.tip, `${l.rotulo}, ${c.rotulo}: ${val.texto}`);
       });

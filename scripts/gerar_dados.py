@@ -277,7 +277,62 @@ for r in res.itertuples():
 
 # ---- episódios (compatíveis e contados)
 e = epi[(epi.evidencia == "localizada e compatível") & (epi.conta_ocorrencia == True)]
-episodios = [{"s": r.sessao_id, "t": r.tarefa, "p": r.padrao, "imp": r.impacto, "fase": r.fase} for r in e.itertuples()]
+
+
+def lista_modelos(v):
+    return [m for m in str(v).split("/") if m and m != "nan"]
+
+
+def impactos(v):
+    return {k: x for k, x in (p.split(":", 1) for p in str(v).split("/") if ":" in p)}
+
+
+episodios = [{"s": r.sessao_id, "t": r.tarefa, "p": r.padrao, "imp": r.impacto, "fase": r.fase,
+              "ms": lista_modelos(r.modelos), "im": impactos(r.impactos_modelos)} for r in e.itertuples()]
+
+# ---- uso das LLMs (sem textos: só códigos, contagens e categorias)
+ras = pd.read_excel(a.friccoes, sheet_name="Rastreabilidade")
+covm = pd.read_excel(a.friccoes, sheet_name="Cobertura por modelo")
+alm = pd.read_excel(a.friccoes, sheet_name="Alertas dos modelos")
+pil = pd.read_excel(a.friccoes, sheet_name="Conciliação do piloto")
+ms_por_ep = {r.ep_id: lista_modelos(r.modelos) for r in epi.itertuples()}
+contados = set(e.ep_id)
+n_alertas = alm.groupby(["sessao_id", "modelo"]).size().to_dict()
+
+
+def n_lacunas(v):
+    try:
+        return len(json.loads(v)) if isinstance(v, str) else 0
+    except ValueError:
+        return 0
+
+
+pos_lote = {sid: i + 1 for _, g in inv.sort_values("sessao_id").groupby("lote") for i, sid in enumerate(g.sessao_id)} \
+    if "lote" in inv.columns else {}
+if not pos_lote:  # os TXT de cada lote trazem as sessões em ordem alfabética
+    lotes = covm[["sessao_id", "lote"]].drop_duplicates().sort_values(["lote", "sessao_id"])
+    pos_lote = {sid: i + 1 for _, g in lotes.groupby("lote") for i, sid in enumerate(g.sessao_id)}
+llm = {
+    "modelos": [
+        {"sigla": "CT", "nome": "ChatGPT", "config": "versão de desempenho alto"},
+        {"sigla": "CL", "nome": "Claude", "config": "versão de desempenho alto"},
+        {"sigla": "G", "nome": "Gemini", "config": "versão de desempenho alto"},
+        {"sigla": "D", "nome": "DeepSeek", "config": "versão padrão disponível"},
+    ],
+    "sessoes_por_lote": 3,
+    "pos_lote": pos_lote,
+    "cobertura": [{"s": r.sessao_id, "m": r.sigla, "nc": int(r.n_candidatos), "lac": n_lacunas(r.lacunas),
+                   "al": int(n_alertas.get((r.sessao_id, r.modelo), 0))} for r in covm.itertuples()],
+    "candidatos": [{"s": r.sessao_id, "m": r.sigla,
+                    "cit": "exata" if r.status_citacao == "localizada_no_intervalo" else str(r.status_citacao),
+                    "st": "sustentado" if r.status == "candidato_sustentado" else "inconclusivo",
+                    "imp": r.impacto if isinstance(r.impacto, str) else None,
+                    "cod": r.codigo if isinstance(r.codigo, str) else None,
+                    "conta": r.ep_consolidado in contados} for r in ras.itertuples()],
+    "piloto": [{"s": r.sessao_id, "sinal": r.sinalizacao,
+                "ms": ms_por_ep.get(r.episodio_consolidado, []) if isinstance(r.episodio_consolidado, str) else []}
+               for r in pil.itertuples()],
+}
 padroes = dict(sorted({(r.padrao, r.padrao_nome) for r in e.itertuples()}))
 
 diretrizes = [] if not a.com_diretrizes else [{"id": r.id, "prioridade": str(r.prioridade), "padroes": [p.strip() for p in str(r.padroes).split(";")],
@@ -293,7 +348,7 @@ dados = {
              + (["sessoes_posthog.xlsx (exportação do PostHog)"] if ph_info else []),
              "posthog": ph_resumo},
     "temas": TEMAS, "padroes": padroes, "sessoes": sessoes, "tarefas": tarefas,
-    "episodios": episodios, "diretrizes": diretrizes,
+    "episodios": episodios, "diretrizes": diretrizes, "llm": llm,
 }
 out = Path(a.saida)
 out.parent.mkdir(parents=True, exist_ok=True)

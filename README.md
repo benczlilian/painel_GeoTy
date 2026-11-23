@@ -8,6 +8,7 @@ Painel estático (HTML, CSS e JavaScript puro, sem dependências nem etapa de bu
 - Eficiência: tempo de conclusão, com as bases separadas.
 - Interações registradas na telemetria, mais a cobertura do PostHog e os recarregamentos da página.
 - Fricções: padrões, tarefas e impacto.
+- Uso das LLMs: comparação entre ChatGPT, Claude, Gemini (versão de desempenho alto) e DeepSeek (versão padrão) na detecção de fricções, com volume, cobertura do consolidado, episódios exclusivos, aproveitamento dos candidatos, concordância de impacto, concordância com o piloto manual, concordância entre pares, consenso, cobertura por padrão, efeito da posição da sessão no lote (3 sessões por arquivo) e estilo de resposta.
 - Satisfação: avaliação global e temas.
 - Carga de trabalho (NASA-TLX).
 - Perfil dos participantes × métricas: composição da amostra e cada métrica por característica (faixa etária, escolaridade, área de formação, uso de mapas digitais, experiência com story maps, tela e navegador).
@@ -70,7 +71,7 @@ Opções:
 | Entrada | O que o script lê |
 |---|---|
 | `dados_quantitativos/` | `inventario_sessoes.csv`, `resultados_individuais.csv`, `nasa_sessao.csv` e `cobertura.csv` |
-| `Consolidado_friccoes.xlsx` | abas *Episódios consolidados* e *Diretrizes* |
+| `Consolidado_friccoes.xlsx` | abas *Episódios consolidados*, *Rastreabilidade*, *Cobertura por modelo*, *Alertas dos modelos*, *Conciliação do piloto* e *Diretrizes* |
 | `Satisfacao_Story_Map.xlsx` | abas *Sessões e cobertura* e *Evidências* |
 | `caracterizacao.xlsx` | abas *DESKTOP* e *MOBILE* (questionário de caracterização) |
 | `sessoes_posthog.xlsx` | exportação do PostHog, uma aba por sessão |
@@ -100,6 +101,14 @@ Depois, faça commit do `data/dados.js` novo.
 - **Fricções.** São episódios consolidados com evidência compatível e contados como ocorrência. Uma sessão conta uma vez por padrão.
 - **Satisfação.** Cada sessão foi classificada pelo relato da entrevista pós-uso. Não há escore padronizado. O SUS não está entre os arquivos usados.
 - **NASA-TLX.** As dimensões são brutas (escala 1–20) e não há escore composto. A direção da dimensão *desempenho* não está documentada no pacote de dados.
+- **Uso das LLMs.**
+  - Base: episódios com evidência compatível e contados como ocorrência; cada episódio guarda quais modelos o detectaram e o impacto que cada um atribuiu.
+  - Cobertura = episódios que o modelo encontrou ÷ episódios do recorte. Como o consolidado é a união dos modelos (mais piloto e telemetria), mede contribuição, não acerto contra gabarito.
+  - Exclusivo = episódio detectado por um só modelo. Aproveitamento = candidatos do modelo que terminaram num episódio contado.
+  - Concordância entre pares: índice de Jaccard sobre os episódios.
+  - Piloto: 37 itens codificados à mão em 7 sessões, ligados aos episódios consolidados.
+  - Posição no lote: cada arquivo tinha 3 sessões em ordem alfabética pelo código.
+  - O arquivo de dados guarda só siglas, categorias e contagens dos candidatos; nenhuma citação ou descrição gerada pelos modelos.
 - **PostHog.**
   - Entram só os eventos do aparelho da pessoa participante; a exportação traz também eventos de outros aparelhos.
   - «PostHog registrou o teste»: a sessão estava na janela do teste segundo a análise de telemetria, ou tem eventos entre o início da T1 e o fim da T6.

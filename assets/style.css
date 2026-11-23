@@ -20,6 +20,8 @@
   --smartphone: #BD9825;
   --ink-on-desktop: #ffffff;
   --ink-on-smartphone: #1e2a35;
+  --llm: #708444;
+  --ink-on-llm: #ffffff;
   --accent: #3D5368;
   --marca-1: #DC4D01;
   --marca-2: #3D5368;
@@ -94,6 +96,11 @@ legend { float: left; margin-right: .5rem; color: var(--ink-2); font-size: .85re
 .indice a:hover { color: var(--ink); text-decoration: underline; text-decoration-color: var(--marca-3); text-underline-offset: 3px; }
 
 main section { margin-top: 2rem; }
+.intro { margin: -.25rem 0 .9rem; color: var(--ink-2); font-size: .9rem; max-width: 95ch; }
+.sintese h3 { margin: 0 0 .35rem; font-size: 1rem; }
+.sintese h4 { margin: .75rem 0 .25rem; font-size: .9rem; color: var(--ink-2); }
+.sintese ul { margin: 0; padding-left: 1.1rem; }
+.sintese li { margin: .25rem 0; font-size: .9rem; }
 .filtros-locais { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: 0 0 .75rem; }
 .filtros-locais label { display: inline-flex; align-items: center; gap: .5rem; color: var(--ink-2); font-size: .85rem; }
 .filtros-locais select {
@@ -109,7 +116,7 @@ h2 { font-size: 1.15rem; font-weight: 650; margin: 0 0 .75rem; }
   padding: 1rem 1.1rem 1.1rem; min-width: 0;
 }
 .grade .cartao { margin-bottom: 0; }
-.grade + .cartao, .cartao + .grade { margin-top: 1rem; }
+.grade + .cartao, .cartao + .grade, .grade + .grade { margin-top: 1rem; }
 .cartao h3 { margin: 0; font-size: 1rem; font-weight: 600; }
 .cartao .sub { margin: .15rem 0 .5rem; color: var(--ink-2); font-size: .85rem; }
 .cartao .nota { margin: .5rem 0 0; color: var(--muted); font-size: .8rem; }
@@ -133,6 +140,7 @@ svg .marca:focus-visible .pintura { stroke: var(--ink); stroke-width: 1.5; }
 svg .alvo { fill: transparent; }
 .fill-desktop { fill: var(--desktop); }
 .fill-smartphone { fill: var(--smartphone); }
+.fill-llm { fill: var(--llm); }
 .stroke-desktop { stroke: var(--desktop); }
 .stroke-smartphone { stroke: var(--smartphone); }
 .ring { stroke: var(--surface); stroke-width: 2; }
