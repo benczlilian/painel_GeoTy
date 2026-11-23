@@ -1,6 +1,6 @@
-# Painel de usabilidade · Curitiba: Mapas e Memórias
+# Painel de usabilidade · GeoTy
 
-Painel estático (HTML, CSS e JavaScript puro, sem dependências nem etapa de build) com as métricas de usabilidade do Story Map «Curitiba: Mapas e Memórias», comparando desktop e smartphone. É parte da pesquisa *Avaliação da Experiência do Usuário de Story Maps em Múltiplas Plataformas* (PPGCG/UFPR).
+Painel estático (HTML, CSS e JavaScript puro, sem dependências nem etapa de build) com as métricas de usabilidade do Story Map «GeoTy», comparando desktop e smartphone. É parte da pesquisa *Avaliação da Experiência do Usuário de Story Maps em Múltiplas Plataformas* (PPGCG/UFPR).
 
 **Seções do painel**
 - Visão geral (indicadores-chave por dispositivo).
