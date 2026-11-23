@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#efebd6">
+  <title>Painel de usabilidade · GeoTy</title>
+  <meta name="description" content="Métricas de usabilidade do Story Map «Curitiba: Mapas e Memórias»: eficácia, eficiência, fricções, satisfação e carga de trabalho, desktop × smartphone.">
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="icon" href="media/pinhao2.png">
+</head>
+<body>
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+  <div class="faixa-marca" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+  <header class="topo">
+    <div class="topo-texto">
+      <p class="sobretitulo">Avaliação da Experiência do Usuário de Story Maps em Múltiplas Plataformas</p>
+      <h1>Painel de usabilidade — GeoTy</h1>
+      <p class="subtitulo">60 testes de usabilidade com think-aloud, telemetria, perguntas abertas pós-uso e NASA-TLX. Cada participante usou um só dispositivo.</p>
+    </div>
+  </header>
+
+  <p id="aviso-provisorio" class="aviso" hidden>Dados quantitativos marcados como <strong>provisórios</strong> na origem. As comparações são descritivas.</p>
+
+  <nav class="filtros" aria-label="Filtros do painel">
+    <fieldset>
+      <legend>Dispositivo</legend>
+      <div class="segmentado" role="radiogroup">
+        <label><input type="radio" name="disp" value="ambos" checked><span>Ambos</span></label>
+        <label><input type="radio" name="disp" value="desktop"><span><i class="chave chave-desktop"></i>Desktop</span></label>
+        <label><input type="radio" name="disp" value="smartphone"><span><i class="chave chave-smartphone"></i>Smartphone</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Amostra</legend>
+      <div class="segmentado" role="radiogroup">
+        <label><input type="radio" name="amostra" value="elegível" checked><span>Elegíveis</span></label>
+        <label><input type="radio" name="amostra" value="todas"><span>Todas (inclui excluídas)</span></label>
+      </div>
+    </fieldset>
+    <p id="resumo-filtro" class="resumo-filtro" aria-live="polite"></p>
+  </nav>
+
+  <nav class="indice" aria-label="Seções">
+    <a href="#visao">Visão geral</a><a href="#eficacia">Eficácia</a><a href="#eficiencia">Eficiência</a>
+    <a href="#interacoes">Interações</a><a href="#friccoes">Fricções</a><a href="#satisfacao">Satisfação</a>
+    <a href="#carga">Carga de trabalho</a><a href="#perfil">Perfil × métricas</a><a href="#sessoes">Sessões</a>
+  </nav>
+
+  <main id="conteudo">
+    <section id="visao" aria-labelledby="h-visao">
+      <h2 id="h-visao">Visão geral</h2>
+      <div id="kpis" class="kpis"></div>
+    </section>
+
+    <section id="eficacia" aria-labelledby="h-eficacia">
+      <h2 id="h-eficacia">Eficácia</h2>
+      <div class="grade">
+        <figure class="cartao" id="c-conclusao"></figure>
+        <figure class="cartao" id="c-interacao"></figure>
+      </div>
+      <figure class="cartao largo" id="c-condicional"></figure>
+    </section>
+
+    <section id="eficiencia" aria-labelledby="h-eficiencia">
+      <h2 id="h-eficiencia">Eficiência</h2>
+      <figure class="cartao largo" id="c-tempos"></figure>
+    </section>
+
+    <section id="interacoes" aria-labelledby="h-interacoes">
+      <h2 id="h-interacoes">Interações registradas (telemetria)</h2>
+      <figure class="cartao largo" id="c-telemetria"></figure>
+      <figure class="cartao largo" id="c-posthog"></figure>
+    </section>
+
+    <section id="friccoes" aria-labelledby="h-friccoes">
+      <h2 id="h-friccoes">Fricções</h2>
+      <figure class="cartao largo" id="c-padroes"></figure>
+      <div class="grade">
+        <figure class="cartao" id="c-friccao-tarefa"></figure>
+        <figure class="cartao" id="c-impacto"></figure>
+      </div>
+    </section>
+
+    <section id="satisfacao" aria-labelledby="h-satisfacao">
+      <h2 id="h-satisfacao">Satisfação (perguntas abertas pós-uso)</h2>
+      <div class="grade">
+        <figure class="cartao" id="c-polaridade"></figure>
+        <figure class="cartao" id="c-temas"></figure>
+      </div>
+    </section>
+
+    <section id="carga" aria-labelledby="h-carga">
+      <h2 id="h-carga">Carga de trabalho percebida (NASA-TLX)</h2>
+      <figure class="cartao largo" id="c-nasa"></figure>
+    </section>
+
+    <section id="perfil" aria-labelledby="h-perfil">
+      <h2 id="h-perfil">Perfil dos participantes × métricas</h2>
+      <div class="filtros-locais" role="group" aria-label="Escolhas do cruzamento">
+        <label>Característica <select id="sel-carac"></select></label>
+        <label>Métrica <select id="sel-metrica"></select></label>
+      </div>
+      <div class="grade">
+        <figure class="cartao" id="c-composicao"></figure>
+        <figure class="cartao" id="c-cruzamento"></figure>
+      </div>
+      <figure class="cartao largo" id="c-perfil-tabela"></figure>
+    </section>
+
+    <section id="sessoes" aria-labelledby="h-sessoes">
+      <h2 id="h-sessoes">Sessões</h2>
+      <div class="cartao largo" id="c-sessoes"></div>
+    </section>
+
+  </main>
+
+  <footer class="rodape"><p id="rodape"></p></footer>
+  <div id="tooltip" class="tooltip" role="status" hidden></div>
+
+  <script src="data/dados.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
